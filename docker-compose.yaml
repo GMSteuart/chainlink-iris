@@ -42,7 +42,7 @@ services:
       - '6689:6689'
     depends_on:
       - db
-      - ganache
+      # - ganache
       # - explorer
     secrets:
       - keystore
@@ -120,41 +120,123 @@ services:
   #   environment:
   #     - EXTERNAL_ADAPTER_PORT=$EXTERNAL_ADAPTER_PORT
 
-  ganache:
-    image: trufflesuite/ganache-cli
-    command: [
-        'node',
-        '/app/ganache-core.docker.cli.js',
-        # For predictability
-        '--deterministic',
-        '--mnemonic',
-        'result soon dose birth swap lonely street staff course snack frog path',
-        '--networkId',
-        '1337',
-        # For persistance
-        '--acctKeys',
-        '/app/data/keys/account-keys.json',
-        '--db',
-        '/app/data/chain',
-        # For player testing
-        '--accounts',
-        '16',
-        # For development
-        '--gasLimit',
-        '12000000'
-        # Ensure node operator address exists
-        # "--unlock", "0x7BEEA9C52881C83899C087B24d4f50A5aff3C7A0"
-      ]
-    volumes:
-      - ./data/ganache/keys:/app/data/keys
-    #   - ./data/ganache/chain:/app/data/chain
+  # ganache:
+  # image: trufflesuite/ganache-cli
+  # env_file: .env
+  # command: [
+  #     'ganache-cli',
+  #     '--gasLimit',
+  #     '12000000',
+  #     '--deterministic',
+  #     '--mnemonic',
+  #     'brownie',
+
+  #     # For persistance
+  #     # '--acctKeys',
+  #     # '/app/data/keys/account-keys.json',
+  #     # '--db',
+  #     # '/app/data/chain',
+  #     '--accounts',
+  #     '10',
+  #     '--fork',
+  #     'https://mainnet.infura.io/v3/$WEB3_INFURA_PROJECT_ID',
+  #     '--hardfork',
+  #     'istanbul',
+  #     # NOTE: no chainId since brownie only uses chainId for live
+  #     # networks.
+  #     '--networkId',
+  #     '*'
+  #     # Ensure node operator address exists
+  #     # "--unlock", "0x7BEEA9C52881C83899C087B24d4f50A5aff3C7A0"
+  #   ]
+  # # volumes:
+  # #   - ./data/ganache/keys:/app/data/keys
+  # #   - ./data/ganache/chain:/app/data/chain
+  # ports:
+  #   - '8545:8545'
+
+  # --- Fonos Services ---
+  # All fonoster docker images: https://hub.docker.com/u/fonoster/
+
+  # Fonos Api Server
+  # https://hub.docker.com/r/fonoster/fonos-apiserver
+  # https://github.com/fonoster/fonos-apiserver
+  fonos-api:
+    image: fonoster/fonos-apiserver:latest
     ports:
-      - '8545:8545'
+      - '50052:50052'
+
+  # Routr is a lightweight sip proxy, location server, and registrar
+  # https://hub.docker.com/r/fonoster/routr
+  routr:
+    image: fonoster/routr:latest
+    environment:
+      DATA_SOURCE_PROVIDER: redis_data_provider
+      DATA_SOURCE_PARAMETERS: host=redis,port=6379
+    healthcheck:
+      test: ['CMD-SHELL', 'nc -z localhost 4567 || exit 1']
+      interval: 30s
+      timeout: 30s
+      retries: 3
+    ports:
+      - '5060:5060'
+      - '5060:5060/udp'
+      - '5061:5061'
+      - '5062:5062'
+      - '5063:5063'
+      - '4567:4567'
+
+  # Fonos Media Server
+  # https://github.com/fonoster/fonos-mediaserver
+  fonos-media:
+    image: fonoster/fonos-mediaserver:latest
+    environment:
+      AGI_URL:
+      SIPPROXY_HOST: 'routr'
+      SIPPROXY_USERNAME:
+      SIPPROXY_SECRET:
+      EXTERN_ADDR:
+      ENABLE_TEST_ACCOUNT: 'true'
+    ports:
+      - '6060:6060'
+
+  # Redis
+  # Datasource for routr
+  # https://hub.docker.com/_/redis
+  redis:
+    image: redis:alpine
+    command: ['redis-server', '--appendonly', 'yes']
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis-data:/data
+
+  # MinIO is a High Performance Object Storage
+  # https://hub.docker.com/r/minio/minio/
+  # default root credentials minioadmin:minioadmin
+  # embedded web based object browser: http://127.0.0.1:9000
+  minio:
+    image: minio/minio:latest
+    ports:
+      - '9000:9000'
+    volumes:
+      - minio-data:/data
+
+  # RabbitMQ is an open source multi-protocol messaging broker.
+  # https://hub.docker.com/_/rabbitmq
+  # default username/password: guest / guest
+  rabbitmq:
+    image: rabbitmq:alpine
+    environment:
+      # Set a consistent cookie
+      RABBITMQ_ERLANG_COOKIE: 'secret'
 
 # Volumes currently commented out for faster development when resetting to clean
 # slate.
 volumes:
   db-data:
+  redis-data:
+  minio-data:
 #   explorer-db-data:
 
 secrets:
