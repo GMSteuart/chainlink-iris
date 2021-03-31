@@ -163,6 +163,14 @@ services:
   # https://github.com/fonoster/fonos-apiserver
   fonos-api:
     image: fonoster/fonos-apiserver:latest
+    environment:
+      DS_HOST: 'redis'
+      DS_PORT: 6379
+      FS_HOST: 'minio'
+      FS_PORT: 9000
+      FS_USERNAME: 'minioadmin'
+      FS_SECRET: 'minioadmin'
+      ALLOW_INSECURE: 'true'
     ports:
       - '50052:50052'
 
